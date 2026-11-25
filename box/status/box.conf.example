@@ -1,0 +1,29 @@
+# /etc/bitrone-box/box.conf — настройки экрана и полосы Bitrone Box
+
+# Где rest-server хранит копии клиента
+REPO_ROOT=/srv/restic
+
+# Серийный номер коробки и клиент (показываются на экране)
+SN=BX-0001
+CLIENT=INCHMARK
+# Какая папка копируется у клиента — только для показа на экране
+SOURCE=D:\1C\Buh
+
+# Язык экрана: az | en
+LANG=az
+
+# Порог «нет копии» (часы) и «нет полной копии» (дни)
+WARN_HOURS=2
+FULL_WARN_DAYS=8
+# Диск заполнен больше чем на N% — предупреждение
+DISK_WARN_PCT=85
+
+# Диск для проверки SMART: проверяет таймер bitrone-box-smart (root, smartmontools)
+# и пишет итог в /var/lib/bitrone-box/smart.txt; пусто — не проверять
+SMART_DEVICE=/dev/sda
+
+# Порт платы: auto или путь, напр. /dev/ttyACM0
+SERIAL=auto
+# Яркость экрана 0..255
+CONTRAST=90
+INTERVAL=10

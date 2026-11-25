@@ -1,0 +1,21 @@
+{
+  "name": "Server1C",
+  "role": "1C serveri",
+  "sn": "BX-MONO-01",
+  "online": true,
+  "updated": 1764070920,
+  "system":     { "os": "Windows Server 2019", "build": "17763.9247",
+                  "uptime_days": 4.17, "last_boot": 1763710050 },
+  "stability":  { "crashes_24h": 2, "crashes_7d": 3, "whea": 0,
+                  "last_dump": "MEMORY.DMP" },
+  "disks":      { "smart": "ok", "temp_c": 34, "wear_pct": 0, "power_on_h": 8200,
+                  "rw_errors": 0,
+                  "volumes": [ {"vol": "C", "label": "Esas", "free_pct": 47, "free_gb": 324},
+                               {"vol": "D", "free_pct": 65, "free_gb": 721},
+                               {"vol": "E", "label": "BACKUPS", "free_pct": 40, "free_gb": 713} ] },
+  "memory":     { "total_gb": 192, "ecc": "single-bit", "modules": 4 },
+  "patching":   { "pending_reboot": false, "autoupdate": "off",
+                  "updates_pending": 1, "last_hotfix": 1763629620 },
+  "activation": { "status": "notification" },
+  "rds":        { "termservice": "running", "sessions_active": 40, "evt20498_7d": 55 }
+}

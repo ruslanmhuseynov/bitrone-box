@@ -1,0 +1,22 @@
+[Unit]
+Description=Bitrone Box status screen (OLED + LED stand)
+After=network.target
+
+[Service]
+Type=simple
+User=@USER@
+Group=@USER@
+SupplementaryGroups=dialout
+ExecStart=/usr/bin/python3 /opt/bitrone-box/bitrone_box_status.py -c /etc/bitrone-box/box.conf
+Restart=always
+RestartSec=5
+RuntimeDirectory=bitrone-box
+StateDirectory=bitrone-box
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/bitrone-box /run/bitrone-box
+
+[Install]
+WantedBy=multi-user.target
