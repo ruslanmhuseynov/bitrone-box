@@ -21,7 +21,7 @@ install -m 0755 "$BOX/share/web-share.py" /opt/bitrone-box/web-share.py
 
 echo "[*] PAM-сервис bitrone-restore (только касание ключа)"
 cat >/etc/pam.d/bitrone-restore <<'EOF'
-auth     required pam_u2f.so authfile=/etc/bitrone-box/u2f_keys origin=pam://bitrone appid=pam://bitrone cue
+auth     required pam_u2f.so authfile=/etc/bitrone-box/u2f_keys origin=pam://bitrone appid=pam://bitrone cue pinverification=1
 auth     required pam_permit.so
 account  required pam_permit.so
 EOF

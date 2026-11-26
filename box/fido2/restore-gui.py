@@ -78,10 +78,45 @@ class App:
         row = tk.Frame(self.root, bg=BG); row.pack(pady=40)
         tk.Button(row, text="Да, восстановить", font=("DejaVu Sans", 20, "bold"), width=16, height=2,
                   bg=OK, fg=TXT, bd=0, highlightthickness=0,
-                  command=lambda: self.run(server)).pack(side="left", padx=16)
+                  command=lambda: self.keypad(server)).pack(side="left", padx=16)
         tk.Button(row, text="Отмена", font=("DejaVu Sans", 20), width=12, height=2,
                   bg=TILE, fg=TXT, bd=0, highlightthickness=0,
                   command=self.menu).pack(side="left", padx=16)
+
+    def keypad(self, server):
+        self.clear()
+        self.pin = ""
+        tk.Label(self.root, text="Введите PIN ключа Bitrone", font=("DejaVu Sans", 26, "bold"),
+                 bg=BG, fg=TXT).pack(pady=(50, 6))
+        self.pin_disp = tk.Label(self.root, text="", font=("DejaVu Sans", 34, "bold"),
+                                 bg=BG, fg=BUSY)
+        self.pin_disp.pack(pady=(0, 16))
+
+        def redraw():
+            self.pin_disp.config(text="●" * len(self.pin))
+
+        def press(d):
+            if len(self.pin) < 32:
+                self.pin += d; redraw()
+
+        def back():
+            self.pin = self.pin[:-1]; redraw()
+
+        grid = tk.Frame(self.root, bg=BG); grid.pack()
+        keys = [("1", 0, 0), ("2", 0, 1), ("3", 0, 2), ("4", 1, 0), ("5", 1, 1), ("6", 1, 2),
+                ("7", 2, 0), ("8", 2, 1), ("9", 2, 2), ("⌫", 3, 0), ("0", 3, 1), ("OK", 3, 2)]
+        for (t, r, c) in keys:
+            if t == "OK":
+                cmd, bg = (lambda: self.run(server) if self.pin else None), OK
+            elif t == "⌫":
+                cmd, bg = back, TILE
+            else:
+                cmd, bg = (lambda d=t: press(d)), TILE
+            tk.Button(grid, text=t, font=("DejaVu Sans", 24, "bold"), width=5, height=2,
+                      bg=bg, fg=TXT, activebackground=BUSY, activeforeground=TXT,
+                      bd=0, highlightthickness=0, command=cmd).grid(row=r, column=c, padx=8, pady=8)
+        tk.Button(self.root, text="Отмена", font=("DejaVu Sans", 16), bg=CARD, fg=MUTED,
+                  bd=0, highlightthickness=0, command=self.menu).pack(pady=18)
 
     def run(self, server):
         self.clear()
@@ -108,8 +143,15 @@ class App:
     def _worker(self):
         try:
             cmd = [RESTORE, self.server] if os.geteuid() == 0 else ["sudo", RESTORE, self.server]
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                 text=True, bufsize=1)
+            p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT, text=True, bufsize=1)
+            try:
+                if getattr(self, "pin", ""):
+                    p.stdin.write(self.pin + "\n"); p.stdin.flush()
+                p.stdin.close()
+            except Exception:
+                pass
+            self.pin = ""  # не держим PIN в памяти дольше нужного
             for line in p.stdout:
                 line = line.strip()
                 self.lines.append(line)
