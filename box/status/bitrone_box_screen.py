@@ -516,7 +516,12 @@ class Screen:
             big = self.fmt_uptime(ud, L) if ud is not None else "—"
             lines = [L["uptime"]]
             if sy.get("os"):
-                lines.append(sy["os"])
+                osl = (sy["os"].replace("Windows Server", "Win Server")
+                       .replace(" Evaluation", "").replace(" Standard", "")
+                       .replace(" Datacenter", " DC"))
+                if len(osl) > 20:
+                    osl = osl[:19].rstrip() + "…"
+                lines.append(osl)
             panels.append({"label": L["sys"], "state": None, "big": big, "lines": lines[:2]})
 
         pt = h.get("patching")
@@ -647,7 +652,7 @@ class Screen:
             y0 = gy0 + r * (th + gap)
             self.tile_rich(cv, x0, y0, x0 + tw, y0 + th, p)
 
-        cv.create_text(pad, H - top - int(H * 0.008), anchor="w",
+        cv.create_text(W // 2, H - top - int(H * 0.008), anchor="center",
                        text="soc.bitrone.az · %s" % time.strftime("%d.%m.%Y %H:%M"),
                        fill=FOOT, font=self.f_foot)
 
