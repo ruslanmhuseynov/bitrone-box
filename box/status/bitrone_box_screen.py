@@ -82,7 +82,7 @@ PANEL = {
         "uptime": "İşləmə vaxtı", "modules": "modul",
         "autoupd_off": "Avto: söndürülüb", "autoupd_on": "Avto: aktiv",
         "reboot_no": "Reboot: tələb olunmur", "reboot_yes": "Reboot tələb olunur",
-        "kb": "KB", "current": "Güncəl", "active": "Aktiv", "inactive": "Aktiv deyil",
+        "kb": "yenil.", "current": "Güncəl", "active": "Aktiv", "inactive": "Aktiv deyil",
         "win": "Windows", "sessions": "Aktiv sessiya",
         "termok": "TermService OK", "termbad": "TermService dayanıb",
         "d_short": "g", "h_short": "s",
@@ -104,7 +104,7 @@ PANEL = {
         "uptime": "Uptime", "modules": "modules",
         "autoupd_off": "Auto: off", "autoupd_on": "Auto: on",
         "reboot_no": "Reboot: not needed", "reboot_yes": "Reboot required",
-        "kb": "KB", "current": "Up to date", "active": "Active", "inactive": "Not active",
+        "kb": "upd", "current": "Up to date", "active": "Active", "inactive": "Not active",
         "win": "Windows", "sessions": "Active sessions",
         "termok": "TermService OK", "termbad": "TermService down",
         "d_short": "d", "h_short": "h",
@@ -126,7 +126,7 @@ PANEL = {
         "uptime": "Аптайм", "modules": "мод.",
         "autoupd_off": "Авто: выкл", "autoupd_on": "Авто: вкл",
         "reboot_no": "Перезагрузка: не нужна", "reboot_yes": "Нужна перезагрузка",
-        "kb": "KB", "current": "Актуально", "active": "Активна", "inactive": "Не активна",
+        "kb": "обн.", "current": "Актуально", "active": "Активна", "inactive": "Не активна",
         "win": "Windows", "sessions": "Активных сессий",
         "termok": "TermService OK", "termbad": "TermService стоит",
         "d_short": "д", "h_short": "ч",
@@ -609,15 +609,12 @@ class Screen:
             sub += " · " + self.cfg["CLIENT"]
         if h.get("name"):
             sub += " · " + h["name"]
+        if len(sub) > 42:
+            sub = sub[:41].rstrip() + "…"
         cv.create_text(dx, cy, anchor="w", text=sub, fill=MUTED, font=self.f_card)
-        cv.create_text(W - pad, cy - int(H * 0.016), anchor="e",
+        cv.create_text(W - pad, cy, anchor="e",
                        text=time.strftime("%H:%M"), fill=TXT, font=self.f_clock)
-        osline = short_os(sy.get("os", ""))
-        if sy.get("build"):
-            osline = (osline + " · " + str(sy["build"])).strip(" ·")
-        if osline:
-            cv.create_text(W - pad, cy + int(H * 0.030), anchor="e",
-                           text=osline, fill=MUTED, font=self.f_client)
+        # строку ОС в шапке НЕ рисуем — она есть в плитке SYSTEM, иначе наезжает на «Сводку»
 
         # ---- баннер состояния (во всю ширину) ----
         by0 = hy + int(H * 0.012)
