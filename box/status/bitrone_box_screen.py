@@ -218,24 +218,30 @@ class Screen:
         self.cv.bind("<ButtonPress-1>", self._press)
         self.cv.bind("<ButtonRelease-1>", self._release)
 
-        # кнопка восстановления — поверх canvas (перерисовка её не стирает)
-        self.restore_btn = tk.Button(self.root, text=self._restore_label(), command=self._launch_restore,
-                                     font=self.f_sub, bg=TILE, fg=TXT,
-                                     activebackground=ACCENT["busy"], activeforeground=TXT,
-                                     bd=0, highlightthickness=0, padx=16, pady=7, cursor="hand2")
-        self.restore_btn.place(relx=0.985, rely=0.965, anchor="se")
+        # края безопасной зоны (чтобы боковые кнопки не ушли под overscan)
+        try:
+            side_f = float(self.cfg.get("SAFE_SIDE_PCT", 3) or 3) / 100.0
+        except ValueError:
+            side_f = 0.03
 
-        # кнопки языка (AZ/RU/EN) — поверх canvas, левый нижний угол
+        # восстановление — иконка на ПРАВОМ краю, по центру
+        self.restore_btn = tk.Button(self.root, text="⟲", command=self._launch_restore,
+                                     font=F(s // 20, True), bg=TILE, fg=TXT,
+                                     activebackground=ACCENT["busy"], activeforeground=TXT,
+                                     bd=0, highlightthickness=0, width=2, pady=12, cursor="hand2")
+        self.restore_btn.place(relx=1.0 - side_f - 0.004, rely=0.5, anchor="e")
+
+        # кнопки языка (AZ/RU/EN) — вертикально на ЛЕВОМ краю, по центру
         self.lang_btns = {}
         lb = tk.Frame(self.root, bg=BG)
         for code in ("az", "ru", "en"):
-            b = tk.Button(lb, text=code.upper(), font=self.f_sub, width=4, pady=6,
+            b = tk.Button(lb, text=code.upper(), font=self.f_sub, width=3, pady=12,
                           fg=TXT, activebackground=ACCENT["busy"], activeforeground=TXT,
                           bd=0, highlightthickness=0, cursor="hand2",
                           command=lambda c=code: self.set_lang(c))
-            b.pack(side="left", padx=5)
+            b.pack(side="top", pady=5)
             self.lang_btns[code] = b
-        lb.place(relx=0.015, rely=0.965, anchor="sw")
+        lb.place(relx=side_f + 0.004, rely=0.5, anchor="w")
         self._lang_btn_colors()
 
         self.refresh_data()
@@ -275,7 +281,6 @@ class Screen:
             return
         self.lang = code
         self.cfg["LANG"] = code
-        self.restore_btn.config(text=self._restore_label())
         self._lang_btn_colors()
         self._persist_lang(code)
         try:                       # пересобрать сообщение (панель копий) на новом языке
@@ -588,7 +593,7 @@ class Screen:
             side = int(W * float(self.cfg.get("SAFE_SIDE_PCT", 0) or 0) / 100.0)
         except ValueError:
             top, side = int(H * 0.05), int(W * 0.03)
-        pad = side + int(W * 0.02)
+        pad = side + int(W * 0.065)   # шире по бокам — место под кнопки языка/восстановления
 
         # ---- шапка ----
         cy = top + int(H * 0.05)
