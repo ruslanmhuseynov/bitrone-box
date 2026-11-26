@@ -148,6 +148,11 @@ def round_rect(cv, x1, y1, x2, y2, r, **kw):
     return cv.create_polygon(pts, smooth=True, **kw)
 
 
+def short_os(s):
+    return ((s or "").replace("Windows Server", "Win Server").replace(" Evaluation", "")
+            .replace(" Standard", "").replace(" Datacenter", " DC").strip())
+
+
 class Screen:
     def __init__(self, cfg):
         self.cfg = cfg
@@ -516,9 +521,7 @@ class Screen:
             big = self.fmt_uptime(ud, L) if ud is not None else "—"
             lines = [L["uptime"]]
             if sy.get("os"):
-                osl = (sy["os"].replace("Windows Server", "Win Server")
-                       .replace(" Evaluation", "").replace(" Standard", "")
-                       .replace(" Datacenter", " DC"))
+                osl = short_os(sy["os"])
                 if len(osl) > 20:
                     osl = osl[:19].rstrip() + "…"
                 lines.append(osl)
@@ -609,7 +612,7 @@ class Screen:
         cv.create_text(dx, cy, anchor="w", text=sub, fill=MUTED, font=self.f_card)
         cv.create_text(W - pad, cy - int(H * 0.016), anchor="e",
                        text=time.strftime("%H:%M"), fill=TXT, font=self.f_clock)
-        osline = sy.get("os", "")
+        osline = short_os(sy.get("os", ""))
         if sy.get("build"):
             osline = (osline + " · " + str(sy["build"])).strip(" ·")
         if osline:
