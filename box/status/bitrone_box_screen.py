@@ -226,10 +226,10 @@ class Screen:
 
         # восстановление — иконка на ПРАВОМ краю, по центру
         self.restore_btn = tk.Button(self.root, text="⟲", command=self._launch_restore,
-                                     font=F(s // 20, True), bg=TILE, fg=TXT,
+                                     font=F(s // 28, True), bg=TILE, fg=TXT,
                                      activebackground=ACCENT["busy"], activeforeground=TXT,
-                                     bd=0, highlightthickness=0, width=2, pady=12, cursor="hand2")
-        self.restore_btn.place(relx=1.0 - side_f - 0.004, rely=0.5, anchor="e")
+                                     bd=0, highlightthickness=0, width=2, pady=14, cursor="hand2")
+        self.restore_btn.place(relx=1.0 - side_f - 0.006, rely=0.5, anchor="e")
 
         # кнопки языка (AZ/RU/EN) — вертикально на ЛЕВОМ краю, по центру
         self.lang_btns = {}
@@ -593,7 +593,7 @@ class Screen:
             side = int(W * float(self.cfg.get("SAFE_SIDE_PCT", 0) or 0) / 100.0)
         except ValueError:
             top, side = int(H * 0.05), int(W * 0.03)
-        pad = side + int(W * 0.065)   # шире по бокам — место под кнопки языка/восстановления
+        pad = side + int(W * 0.08)   # шире по бокам — место под кнопки языка/восстановления
 
         # ---- шапка ----
         cy = top + int(H * 0.05)
