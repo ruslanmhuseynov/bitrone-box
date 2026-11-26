@@ -72,6 +72,22 @@ def load_lang():
     return "az"
 
 
+def save_lang(code):
+    try:
+        with open(CONFIG, encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        found = False
+        for i, ln in enumerate(lines):
+            if ln.strip().startswith("LANG="):
+                lines[i] = "LANG=%s\n" % code; found = True
+        if not found:
+            lines.append("LANG=%s\n" % code)
+        with open(CONFIG, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+    except OSError:
+        pass  # нет прав (kiosk) — только на эту сессию
+
+
 def servers():
     try:
         return sorted(d for d in os.listdir(REPO_ROOT)
@@ -94,9 +110,27 @@ class App:
         for w in self.root.winfo_children():
             w.destroy()
 
+    def lang_bar(self):
+        bar = tk.Frame(self.root, bg=BG)
+        for code in ("az", "ru", "en"):
+            active = (self.L is STRINGS[code])
+            tk.Button(bar, text=code.upper(), font=("DejaVu Sans", 18, "bold"),
+                      width=5, pady=6, bd=0, highlightthickness=0,
+                      bg=(OK if active else TILE), fg=TXT,
+                      activebackground=BUSY, activeforeground=TXT,
+                      command=lambda c=code: self.set_lang(c)).pack(side="left", padx=5)
+        bar.place(relx=0.985, rely=0.02, anchor="ne")
+
+    def set_lang(self, code):
+        if code in STRINGS:
+            self.L = STRINGS[code]
+            save_lang(code)
+            self.menu()
+
     def menu(self):
         self.clear()
         L = self.L
+        self.lang_bar()
         tk.Label(self.root, text=L["title"], font=("DejaVu Sans", 34, "bold"),
                  bg=BG, fg=TXT).pack(pady=(40, 6))
         tk.Label(self.root, text=L["pick"], font=("DejaVu Sans", 16),
@@ -111,8 +145,9 @@ class App:
                       bg=TILE, fg=TXT, activebackground=BUSY, activeforeground=TXT,
                       bd=0, highlightthickness=0,
                       command=lambda s=s: self.confirm(s)).pack(pady=8)
-        tk.Button(self.root, text=L["close"], font=("DejaVu Sans", 14), bg=CARD, fg=MUTED,
-                  bd=0, highlightthickness=0, command=self.root.destroy).pack(side="bottom", pady=20)
+        tk.Button(self.root, text=L["close"], font=("DejaVu Sans", 22, "bold"),
+                  width=18, height=2, bg=TILE, fg=TXT, activebackground=ALERT, activeforeground=TXT,
+                  bd=0, highlightthickness=0, command=self.root.destroy).pack(side="bottom", pady=30)
 
     def confirm(self, server):
         self.clear()

@@ -214,12 +214,24 @@ class Screen:
         self.cv.bind("<ButtonRelease-1>", self._release)
 
         # кнопка восстановления — поверх canvas (перерисовка её не стирает)
-        blabel = {"az": "⟲ Bərpa", "en": "⟲ Restore"}.get(self.lang, "⟲ Restore")
-        self.restore_btn = tk.Button(self.root, text=blabel, command=self._launch_restore,
+        self.restore_btn = tk.Button(self.root, text=self._restore_label(), command=self._launch_restore,
                                      font=self.f_sub, bg=TILE, fg=TXT,
                                      activebackground=ACCENT["busy"], activeforeground=TXT,
                                      bd=0, highlightthickness=0, padx=16, pady=7, cursor="hand2")
         self.restore_btn.place(relx=0.985, rely=0.965, anchor="se")
+
+        # кнопки языка (AZ/RU/EN) — поверх canvas, левый нижний угол
+        self.lang_btns = {}
+        lb = tk.Frame(self.root, bg=BG)
+        for code in ("az", "ru", "en"):
+            b = tk.Button(lb, text=code.upper(), font=self.f_sub, width=4, pady=6,
+                          fg=TXT, activebackground=ACCENT["busy"], activeforeground=TXT,
+                          bd=0, highlightthickness=0, cursor="hand2",
+                          command=lambda c=code: self.set_lang(c))
+            b.pack(side="left", padx=5)
+            self.lang_btns[code] = b
+        lb.place(relx=0.015, rely=0.965, anchor="sw")
+        self._lang_btn_colors()
 
         self.refresh_data()
         self.tick()
@@ -244,6 +256,44 @@ class Screen:
             subprocess.Popen(["python3", gui])
         except OSError as ex:
             print("restore-gui: %s" % ex, file=sys.stderr, flush=True)
+
+    def _restore_label(self):
+        return {"az": "⟲ Bərpa", "ru": "⟲ Восстановить",
+                "en": "⟲ Restore"}.get(self.lang, "⟲ Restore")
+
+    def _lang_btn_colors(self):
+        for code, b in self.lang_btns.items():
+            b.config(bg=(ACCENT["ok"] if code == self.lang else TILE))
+
+    def set_lang(self, code):
+        if code not in HEADLINE:
+            return
+        self.lang = code
+        self.cfg["LANG"] = code
+        self.restore_btn.config(text=self._restore_label())
+        self._lang_btn_colors()
+        self._persist_lang(code)
+        try:                       # пересобрать сообщение (панель копий) на новом языке
+            self.msg, self.status = box.snapshot(self.cfg, self.smart, time.time())
+        except Exception as e:
+            print("lang snapshot: %s" % e, file=sys.stderr, flush=True)
+        self.render()
+
+    def _persist_lang(self, code):
+        path = "/etc/bitrone-box/box.conf"
+        try:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+            found = False
+            for i, ln in enumerate(lines):
+                if ln.strip().startswith("LANG="):
+                    lines[i] = "LANG=%s\n" % code; found = True
+            if not found:
+                lines.append("LANG=%s\n" % code)
+            with open(path, "w", encoding="utf-8") as f:
+                f.writelines(lines)
+        except OSError:
+            pass  # нет прав на запись (kiosk) — переключаем только для этой сессии
 
     def refresh_data(self):
         now = time.time()
