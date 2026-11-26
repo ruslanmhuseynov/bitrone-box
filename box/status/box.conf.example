@@ -3,6 +3,12 @@
 # Где rest-server хранит копии клиента
 REPO_ROOT=/srv/restic
 
+# Папка с health.json серверов (сюда пишет приёмник, отсюда читает экран)
+HEALTH_ROOT=/srv/bitrone/health
+# Приёмник health от серверов клиента (install-health-receiver.sh)
+HEALTH_PORT=8080
+# HEALTH_TOKEN генерируется установщиком приёмника — тот же токен в health.conf на сервере
+
 # Серийный номер коробки и клиент (показываются на экране)
 SN=BX-0001
 CLIENT=INCHMARK

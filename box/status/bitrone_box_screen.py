@@ -19,6 +19,7 @@ REPO_ROOT, status.json) — отличается только вывод:
 """
 import argparse
 import os
+import subprocess
 import sys
 import time
 import tkinter as tk
@@ -180,8 +181,43 @@ class Screen:
         self.cv = tk.Canvas(self.root, bg=BG, highlightthickness=0, bd=0)
         self.cv.pack(fill="both", expand=True)
 
+        # скрытый запуск восстановления: ДОЛГОЕ касание (>=1.5с) в правом верхнем углу
+        self._press_t = 0.0
+        self._press_xy = (0, 0)
+        self.cv.bind("<ButtonPress-1>", self._press)
+        self.cv.bind("<ButtonRelease-1>", self._release)
+
+        # кнопка восстановления — поверх canvas (перерисовка её не стирает)
+        blabel = {"az": "⟲ Bərpa", "en": "⟲ Restore"}.get(self.lang, "⟲ Restore")
+        self.restore_btn = tk.Button(self.root, text=blabel, command=self._launch_restore,
+                                     font=self.f_sub, bg=TILE, fg=TXT,
+                                     activebackground=ACCENT["busy"], activeforeground=TXT,
+                                     bd=0, highlightthickness=0, padx=16, pady=7, cursor="hand2")
+        self.restore_btn.place(relx=0.985, rely=0.965, anchor="se")
+
         self.refresh_data()
         self.tick()
+
+    def _press(self, e):
+        self._press_t = time.time()
+        self._press_xy = (e.x, e.y)
+
+    def _release(self, e):
+        held = time.time() - self._press_t
+        x0, y0 = self._press_xy
+        corner = (x0 > self.W * 0.85 and y0 < self.H * 0.15 and
+                  e.x > self.W * 0.85 and e.y < self.H * 0.15)
+        if held >= 1.5 and corner:
+            self._launch_restore()
+
+    def _launch_restore(self):
+        gui = "/opt/bitrone-box/restore-gui.py"
+        if not os.path.exists(gui):
+            return
+        try:
+            subprocess.Popen(["python3", gui])
+        except OSError as ex:
+            print("restore-gui: %s" % ex, file=sys.stderr, flush=True)
 
     def refresh_data(self):
         now = time.time()

@@ -16,6 +16,8 @@
 # Установка — install-bitrone-backup.ps1 (ставит restic, пишет конфиг, создаёт задачу).
 
 $ErrorActionPreference = 'Stop'
+# restic-команды проверяем по кодам возврата; их stderr/ненулевой выход не должен ронять скрипт
+$PSNativeCommandUseErrorActionPreference = $false
 $cfgPath = 'C:\ProgramData\Bitrone\restic.conf'
 $logPath = 'C:\ProgramData\Bitrone\restic-backup.log'
 New-Item -ItemType Directory -Force -Path (Split-Path $logPath) | Out-Null
@@ -51,6 +53,9 @@ if (-not $latest) { Log "В папке $source нет файлов по маск
 
 $env:RESTIC_REPOSITORY = "$($cfg.BOX_URL)/$server"
 $env:RESTIC_PASSWORD   = $cfg.RESTIC_PASSWORD
+
+# дальше нативный restic — ошибки ловим по кодам возврата, не по stderr
+$ErrorActionPreference = 'Continue'
 
 # репозиторий ещё не создан? (append-only позволяет init — создаёт новые файлы)
 & $restic cat config *> $null

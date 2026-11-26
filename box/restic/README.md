@@ -32,15 +32,18 @@ sudo bash box/restic/install-rest-server.sh
 
 Необязательно: `-Mask "*.bak"` — фильтр файлов, `-Server ИМЯ` — другое имя репо.
 
-## 3. Очистка старых копий — НА КОРОБКЕ
-append-only не даёт клиенту удалять, поэтому retention запускает коробка (есть доступ к ФС).
-Пароль репозитория нужен и здесь (храни в `/etc/bitrone-box/repos/<Server>.pass`):
+## 3. Очистка старых копий — НА КОРОБКЕ (один раз)
+append-only не даёт клиенту удалять, поэтому retention запускает коробка.
 ```bash
-export RESTIC_REPOSITORY=/srv/restic/Server1C
-export RESTIC_PASSWORD="$(cat /etc/bitrone-box/repos/Server1C.pass)"
-restic forget --keep-daily 14 --keep-weekly 8 --keep-monthly 12 --prune
+sudo bash box/restic/install-prune.sh                 # restic client + systemd-таймер (ежедневно 03:30)
+sudo bash box/restic/save-repo-pass.sh <ИмяСервера>   # пароль репо — его печатает установщик на сервере
 ```
-Повесить таймером раз в сутки (systemd timer / cron).
+`prune-repos.sh` проходит по всем репозиториям в `/srv/restic`, берёт пароль из
+`/etc/bitrone-box/repos/<ИмяРепо>.pass` и делает `forget --prune`. Репо без пароля
+пропускаются. Политика хранения — в `/etc/bitrone-box/prune.conf`
+(`KEEP_DAILY`/`KEEP_WEEKLY`/`KEEP_MONTHLY`, по умолчанию 14/8/12).
+
+Проверить вручную: `sudo systemctl start bitrone-box-prune.service` · лог `/var/log/bitrone-box/prune.log`.
 
 ## Проверка
 ```bash

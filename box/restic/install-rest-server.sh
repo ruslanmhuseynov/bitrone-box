@@ -61,7 +61,7 @@ HTPASS="$CFGDIR/restic.htpasswd"
 mkdir -p "$CFGDIR"
 CREATED=0
 if [ ! -f "$HTPASS" ]; then
-  PW="$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 20)"
+  PW="$(head -c 15 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')"
   htpasswd -B -b -c "$HTPASS" "$HTUSER" "$PW"
   chown "$SVCUSER:$SVCUSER" "$HTPASS"; chmod 640 "$HTPASS"
   printf '%s\n' "$PW" > "$CFGDIR/restic.http.pass"

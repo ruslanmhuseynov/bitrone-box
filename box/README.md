@@ -91,6 +91,19 @@ sudo -u restic python3 /opt/bitrone-box/bitrone_box_status.py --once   # что 
 
 Служба также пишет `/run/bitrone-box/status.json` — локальный файл состояния (для диагностики на самой коробке). Наружу никуда не отправляется.
 
+## Здоровье серверов (витрина)
+
+Сервер клиента раз в час шлёт `health.json` на коробку:
+
+```
+collect-health.ps1 (сервер) ──PUT /health/<Имя>──▶ health-receiver.py (коробка)
+                                                    → /srv/bitrone/health/<Имя>.json → витрина
+```
+
+- Приёмник: `sudo bash box/health/install-health-receiver.sh` (печатает URL и токен).
+- На сервере: `collect-health.ps1` + `C:\ProgramData\Bitrone\health.conf` (HEALTH_URL, HEALTH_TOKEN) + ежечасная задача.
+- Пока health.json нет — витрина показывает простой дашборд копий; как появится — богатый экран на 8 панелей.
+
 ## Тесты
 
 ```bash
