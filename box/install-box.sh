@@ -11,7 +11,7 @@ set -euo pipefail
 [ "$(id -u)" = 0 ] || { echo "Запусти под root: sudo bash $0"; exit 1; }
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
-SN=""; CLIENT=""; LANG_="az"; DEVICE="/dev/sda"
+SN=""; CLIENT=""; LANG_=""; DEVICE="/dev/sda"
 while [ $# -gt 0 ]; do
   case "$1" in
     --sn) SN="$2"; shift 2;;
@@ -24,6 +24,7 @@ done
 
 [ -n "$SN" ]     || read -rp "Серийный номер коробки (напр. BX-0001): " SN
 [ -n "$CLIENT" ] || read -rp "Клиент (короткое имя, напр. INCHMARK): " CLIENT
+[ -n "$LANG_" ]  || { read -rp "Язык экрана az/ru/en [az]: " LANG_; LANG_="${LANG_:-az}"; }
 
 CFG=/etc/bitrone-box/box.conf
 mkdir -p /etc/bitrone-box

@@ -66,6 +66,15 @@ TEXT = {
         "full_old": "Full backup old",
         "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     },
+    "ru": {
+        "min": "мин", "hour": "ч", "day": "д", "now": "сейчас",
+        "last": "Копия", "full": "Полная", "none": "нет", "never": "Нет копий",
+        "no_backup": "Копий нет", "notified": "Bitrone уведомлён",
+        "busy": "Приём копии...", "disk": "Диск", "free": "свободно", "smart_ok": "Здоровье: OK",
+        "smart_bad": "ОШИБКА ДИСКА!", "folder": "Папка:", "client": "Клиент:",
+        "full_old": "Полная копия старая",
+        "days": ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+    },
 }
 
 

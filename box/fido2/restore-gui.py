@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Bitrone Box — тач-лаунчер восстановления на витрине.
+"""Bitrone Box — тач-лаунчер восстановления на витрине (AZ / RU / EN).
 
-Кнопка на сервер → подтверждение → запуск /opt/bitrone-box/restore.sh
-(требует касания FIDO2-ключа) → прогресс-бар → ссылка для скачивания (3 часа).
-Прогресс считается по размеру восстановленного (без обновления restic).
+Кнопка на сервер → подтверждение → PIN → запуск /opt/bitrone-box/restore.sh
+(FIDO2: PIN + касание) → прогресс-бар → ссылка для скачивания (3 часа).
+Язык берётся из LANG в /etc/bitrone-box/box.conf.
 """
 import os
 import subprocess
@@ -13,20 +13,63 @@ import tkinter as tk
 REPO_ROOT = "/srv/restic"
 RESTORE_ROOT = "/srv/restore"
 RESTORE = "/opt/bitrone-box/restore.sh"
+CONFIG = "/etc/bitrone-box/box.conf"
 
 BG = "#0B1630"; CARD = "#111F3F"; TILE = "#22355F"; TRACK = "#1B2B4D"
 TXT = "#FFFFFF"; MUTED = "#8CA0C6"; OK = "#3BA935"; ALERT = "#E5484D"; BUSY = "#3BA1E5"
 
+STRINGS = {
+    "az": {
+        "title": "Nüsxənin bərpası", "pick": "Serveri seçin — son nüsxəni bərpa edək",
+        "none": "Hələ nüsxə yoxdur", "close": "Bağla",
+        "confirm_q": "Bu serverin SON nüsxəsini bərpa edək?",
+        "yes": "Bəli, bərpa et", "cancel": "Ləğv et",
+        "pin_title": "Bitrone açarının PIN-ini daxil edin",
+        "touch": "Bitrone açarını qutuya yaxınlaşdırın və toxunun",
+        "restoring": "Bərpa olunur… (açar qəbul edildi)",
+        "done": "Hazırdır", "fail": "Alınmadı",
+        "dl": "3 saat ərzində linklə yükləmək olar:", "menu": "Menyuya",
+        "restore_of": "Bərpa: %s",
+    },
+    "ru": {
+        "title": "Восстановление копии", "pick": "Выберите сервер — восстановим последнюю копию",
+        "none": "Копий пока нет", "close": "Закрыть",
+        "confirm_q": "Восстановить ПОСЛЕДНЮЮ копию этого сервера?",
+        "yes": "Да, восстановить", "cancel": "Отмена",
+        "pin_title": "Введите PIN ключа Bitrone",
+        "touch": "Приложите ключ Bitrone к коробке и коснитесь его",
+        "restoring": "Восстановление… (ключ принят)",
+        "done": "Готово", "fail": "Не удалось",
+        "dl": "Скачать можно 3 часа по ссылке:", "menu": "В меню",
+        "restore_of": "Восстановление %s",
+    },
+    "en": {
+        "title": "Restore a backup", "pick": "Pick a server — we'll restore the latest copy",
+        "none": "No backups yet", "close": "Close",
+        "confirm_q": "Restore this server's LATEST copy?",
+        "yes": "Yes, restore", "cancel": "Cancel",
+        "pin_title": "Enter the Bitrone key PIN",
+        "touch": "Insert the Bitrone key and touch it",
+        "restoring": "Restoring… (key accepted)",
+        "done": "Done", "fail": "Failed",
+        "dl": "Download link (valid 3 hours):", "menu": "Menu",
+        "restore_of": "Restoring %s",
+    },
+}
 
-def folder_size(path):
-    total = 0
-    for root, _dirs, files in os.walk(path):
-        for f in files:
-            try:
-                total += os.path.getsize(os.path.join(root, f))
-            except OSError:
-                pass
-    return total
+
+def load_lang():
+    try:
+        with open(CONFIG, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("LANG="):
+                    v = line.split("=", 1)[1].strip()
+                    if v in STRINGS:
+                        return v
+    except OSError:
+        pass
+    return "az"
 
 
 def servers():
@@ -39,8 +82,9 @@ def servers():
 
 class App:
     def __init__(self):
+        self.L = STRINGS[load_lang()]
         self.root = tk.Tk()
-        self.root.title("Bitrone — восстановление")
+        self.root.title("Bitrone")
         self.root.configure(bg=BG)
         self.root.attributes("-fullscreen", True)
         self.root.bind("<Escape>", lambda e: self.root.destroy())
@@ -52,41 +96,44 @@ class App:
 
     def menu(self):
         self.clear()
-        tk.Label(self.root, text="Восстановление копии", font=("DejaVu Sans", 34, "bold"),
+        L = self.L
+        tk.Label(self.root, text=L["title"], font=("DejaVu Sans", 34, "bold"),
                  bg=BG, fg=TXT).pack(pady=(40, 6))
-        tk.Label(self.root, text="Выберите сервер — восстановим последнюю копию",
-                 font=("DejaVu Sans", 16), bg=BG, fg=MUTED).pack(pady=(0, 30))
+        tk.Label(self.root, text=L["pick"], font=("DejaVu Sans", 16),
+                 bg=BG, fg=MUTED).pack(pady=(0, 30))
         wrap = tk.Frame(self.root, bg=BG); wrap.pack(expand=True)
         srv = servers()
         if not srv:
-            tk.Label(wrap, text="Копий пока нет", font=("DejaVu Sans", 20),
+            tk.Label(wrap, text=L["none"], font=("DejaVu Sans", 20),
                      bg=BG, fg=MUTED).pack(pady=40)
         for s in srv:
             tk.Button(wrap, text=s, font=("DejaVu Sans", 22, "bold"), width=22, height=2,
                       bg=TILE, fg=TXT, activebackground=BUSY, activeforeground=TXT,
                       bd=0, highlightthickness=0,
                       command=lambda s=s: self.confirm(s)).pack(pady=8)
-        tk.Button(self.root, text="Закрыть", font=("DejaVu Sans", 14), bg=CARD, fg=MUTED,
+        tk.Button(self.root, text=L["close"], font=("DejaVu Sans", 14), bg=CARD, fg=MUTED,
                   bd=0, highlightthickness=0, command=self.root.destroy).pack(side="bottom", pady=20)
 
     def confirm(self, server):
         self.clear()
+        L = self.L
         tk.Label(self.root, text=server, font=("DejaVu Sans", 30, "bold"),
                  bg=BG, fg=TXT).pack(pady=(80, 10))
-        tk.Label(self.root, text="Восстановить ПОСЛЕДНЮЮ копию этого сервера?",
-                 font=("DejaVu Sans", 18), bg=BG, fg=MUTED).pack(pady=10)
+        tk.Label(self.root, text=L["confirm_q"], font=("DejaVu Sans", 18),
+                 bg=BG, fg=MUTED).pack(pady=10)
         row = tk.Frame(self.root, bg=BG); row.pack(pady=40)
-        tk.Button(row, text="Да, восстановить", font=("DejaVu Sans", 20, "bold"), width=16, height=2,
+        tk.Button(row, text=L["yes"], font=("DejaVu Sans", 20, "bold"), width=16, height=2,
                   bg=OK, fg=TXT, bd=0, highlightthickness=0,
                   command=lambda: self.keypad(server)).pack(side="left", padx=16)
-        tk.Button(row, text="Отмена", font=("DejaVu Sans", 20), width=12, height=2,
+        tk.Button(row, text=L["cancel"], font=("DejaVu Sans", 20), width=12, height=2,
                   bg=TILE, fg=TXT, bd=0, highlightthickness=0,
                   command=self.menu).pack(side="left", padx=16)
 
     def keypad(self, server):
         self.clear()
+        L = self.L
         self.pin = ""
-        tk.Label(self.root, text="Введите PIN ключа Bitrone", font=("DejaVu Sans", 26, "bold"),
+        tk.Label(self.root, text=L["pin_title"], font=("DejaVu Sans", 26, "bold"),
                  bg=BG, fg=TXT).pack(pady=(50, 6))
         self.pin_disp = tk.Label(self.root, text="", font=("DejaVu Sans", 34, "bold"),
                                  bg=BG, fg=BUSY)
@@ -115,19 +162,20 @@ class App:
             tk.Button(grid, text=t, font=("DejaVu Sans", 24, "bold"), width=5, height=2,
                       bg=bg, fg=TXT, activebackground=BUSY, activeforeground=TXT,
                       bd=0, highlightthickness=0, command=cmd).grid(row=r, column=c, padx=8, pady=8)
-        tk.Button(self.root, text="Отмена", font=("DejaVu Sans", 16), bg=CARD, fg=MUTED,
+        tk.Button(self.root, text=L["cancel"], font=("DejaVu Sans", 16), bg=CARD, fg=MUTED,
                   bd=0, highlightthickness=0, command=self.menu).pack(pady=18)
 
     def run(self, server):
         self.clear()
+        L = self.L
         self.server = server
         self.done = False; self.ok = False
         self.url = ""; self.lines = []
 
-        tk.Label(self.root, text="Восстановление " + server, font=("DejaVu Sans", 28, "bold"),
+        tk.Label(self.root, text=L["restore_of"] % server, font=("DejaVu Sans", 28, "bold"),
                  bg=BG, fg=TXT).pack(pady=(90, 20))
-        self.status = tk.Label(self.root, text="Приложите ключ Bitrone к коробке и коснитесь его",
-                               font=("DejaVu Sans", 20), bg=BG, fg=BUSY)
+        self.status = tk.Label(self.root, text=L["touch"], font=("DejaVu Sans", 20),
+                               bg=BG, fg=BUSY)
         self.status.pack(pady=10)
 
         self.barw = int(self.root.winfo_screenwidth() * 0.6)
@@ -175,27 +223,28 @@ class App:
             self._finish(); return
         pct = self._read_pct()
         if pct < 0:
-            self.status.config(text="Приложите ключ Bitrone к коробке и коснитесь его")
+            self.status.config(text=self.L["touch"])
         else:
             self.bar.coords(self.fill, 0, 0, int(self.barw * pct / 100), 28)
-            self.status.config(text="Восстановление… (ключ принят)")
+            self.status.config(text=self.L["restoring"])
             self.pct_lbl.config(text="%d %%" % pct)
         self.root.after(700, self._poll)
 
     def _finish(self):
+        L = self.L
         self.bar.coords(self.fill, 0, 0, self.barw if self.ok else 0, 28)
         self.pct_lbl.config(text="100 %" if self.ok else "")
-        self.status.config(text=("Готово" if self.ok else "Не удалось"),
+        self.status.config(text=(L["done"] if self.ok else L["fail"]),
                            fg=(OK if self.ok else ALERT))
         if self.ok and self.url:
-            tk.Label(self.root, text="Скачать можно 3 часа по ссылке:", font=("DejaVu Sans", 16),
+            tk.Label(self.root, text=L["dl"], font=("DejaVu Sans", 16),
                      bg=BG, fg=MUTED).pack(pady=(26, 4))
             tk.Label(self.root, text=self.url, font=("DejaVu Sans Mono", 22, "bold"),
                      bg=BG, fg=TXT).pack()
         elif not self.ok:
             tk.Label(self.root, text="\n".join(self.lines[-5:]), font=("DejaVu Sans Mono", 12),
                      bg=BG, fg=MUTED, justify="left").pack(pady=12)
-        tk.Button(self.root, text="В меню", font=("DejaVu Sans", 18, "bold"), width=14, height=2,
+        tk.Button(self.root, text=L["menu"], font=("DejaVu Sans", 18, "bold"), width=14, height=2,
                   bg=TILE, fg=TXT, bd=0, highlightthickness=0, command=self.menu).pack(pady=30)
 
     def loop(self):

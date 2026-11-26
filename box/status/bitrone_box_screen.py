@@ -59,9 +59,13 @@ HEADLINE = {
            "warn": "DİQQƏT TƏLƏB OLUNUR", "alert": "KRİTİK VƏZİYYƏT"},
     "en": {"ok": "ALL PROTECTED", "busy": "BACKUP INCOMING",
            "warn": "ATTENTION NEEDED", "alert": "CRITICAL CONDITION"},
+    "ru": {"ok": "ВСЁ ПОД ЗАЩИТОЙ", "busy": "ПРИЁМ КОПИИ",
+           "warn": "ТРЕБУЕТ ВНИМАНИЯ", "alert": "КРИТИЧЕСКОЕ СОСТОЯНИЕ"},
 }
-SUB_OK   = {"az": "Məlumatlarınız qorunur", "en": "Your data is protected"}
-CARD_TTL = {"az": "Təhlükəsizlik icması", "en": "Security summary"}
+SUB_OK   = {"az": "Məlumatlarınız qorunur", "en": "Your data is protected",
+            "ru": "Ваши данные под защитой"}
+CARD_TTL = {"az": "Təhlükəsizlik icması", "en": "Security summary",
+            "ru": "Сводка безопасности"}
 
 # порядок тяжести состояний (для «худшее из»)
 WORST = {None: 0, "ok": 0, "busy": 1, "warn": 2, "alert": 3}
@@ -111,6 +115,28 @@ PANEL = {
         "b_unstable_sub": "%d crashes in last 24h (BSOD) · backups protected",
         "b_critical": "CRITICAL CONDITION",
         "b_critical_sub": "Hardware fault · Bitrone notified · backups protected",
+    },
+    "ru": {
+        "backup": "КОПИЯ", "stab": "СТАБИЛЬНОСТЬ", "disks": "ДИСКИ", "mem": "ПАМЯТЬ",
+        "sys": "СИСТЕМА", "upd": "ОБНОВЛЕНИЯ", "act": "АКТИВАЦИЯ", "rdp": "RDP · ТЕРМИНАЛ",
+        "smart_ok": "SMART OK", "smart_bad": "SMART СБОЙ",
+        "crashes": "BSOD", "stable": "Стабилен",
+        "last24": "За 24 ч · BSOD", "stable24": "За 24 ч чисто",
+        "whea_no": "WHEA: нет", "whea_yes": "WHEA: есть",
+        "uptime": "Аптайм", "modules": "мод.",
+        "autoupd_off": "Авто: выкл", "autoupd_on": "Авто: вкл",
+        "reboot_no": "Перезагрузка: не нужна", "reboot_yes": "Нужна перезагрузка",
+        "kb": "KB", "current": "Актуально", "active": "Активна", "inactive": "Не активна",
+        "win": "Windows", "sessions": "Активных сессий",
+        "termok": "TermService OK", "termbad": "TermService стоит",
+        "d_short": "д", "h_short": "ч",
+        "b_ok": "ВСЁ ПОД ЗАЩИТОЙ", "b_ok_sub": "Сервер здоров, копии защищены",
+        "b_busy": "ПРИЁМ КОПИИ", "b_warn": "ТРЕБУЕТ ВНИМАНИЯ",
+        "b_warn_sub": "Некоторые показатели нужно проверить",
+        "b_unstable": "СЕРВЕР НЕСТАБИЛЕН",
+        "b_unstable_sub": "За 24 ч BSOD: %d · копии защищены",
+        "b_critical": "КРИТИЧЕСКОЕ СОСТОЯНИЕ",
+        "b_critical_sub": "Сбой оборудования · Bitrone уведомлён · копии защищены",
     },
 }
 
