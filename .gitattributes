@@ -1,0 +1,12 @@
+# Скрипты для Linux-коробки и Python — всегда LF (иначе ломаются на коробке)
+*.sh   text eol=lf
+*.py   text eol=lf
+# PowerShell для Windows-сервера — CRLF
+*.ps1  text eol=crlf
+*.bat  text eol=crlf
+# бинарники
+*.png  binary
+*.jpg  binary
+*.pdf  binary
+*.stl  binary
+*.zip  binary
