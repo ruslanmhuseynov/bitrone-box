@@ -133,7 +133,7 @@ sudo /usr/local/bin/restic-fido2-pass.sh</code></pre>
 # шифрование (PIN + касание) — секрет идёт через stdin, в командной строке не виден
 sudo /usr/local/bin/restic-fido2-pass.sh \
   | sudo openssl enc -aes-256-cbc -pbkdf2 -salt -pass stdin -in /tmp/plain.txt -out /tmp/cipher.bin
-sudo xxd /tmp/cipher.bin | head -2        # → нечитаемый шифротекст
+sudo od -A x -t x1z /tmp/cipher.bin | head -3   # → нечитаемый шифротекст
 
 # расшифровка (снова PIN + касание → тот же секрет из ключа)
 sudo /usr/local/bin/restic-fido2-pass.sh \

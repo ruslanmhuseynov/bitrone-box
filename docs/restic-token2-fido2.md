@@ -70,7 +70,7 @@ echo "Bitrone secret $(date)" | sudo tee /tmp/plain.txt
 # encrypt (PIN + touch) — secret piped in, never on the command line
 sudo /usr/local/bin/restic-fido2-pass.sh \
   | sudo openssl enc -aes-256-cbc -pbkdf2 -salt -pass stdin -in /tmp/plain.txt -out /tmp/cipher.bin
-sudo xxd /tmp/cipher.bin | head -2        # unreadable ciphertext
+sudo od -A x -t x1z /tmp/cipher.bin | head -3   # unreadable ciphertext
 
 # decrypt (PIN + touch again → same secret)
 sudo /usr/local/bin/restic-fido2-pass.sh \
