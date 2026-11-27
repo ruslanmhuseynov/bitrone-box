@@ -27,6 +27,7 @@
   ul{margin:6px 0 6px 2px;padding-left:18px}
   li{margin:3px 0}
   b,strong{color:var(--navy)}
+  a{color:#2F6BE5;text-decoration:none}
   code{font-family:"Consolas","DejaVu Sans Mono",monospace;font-size:9.6pt;
     background:#eef1f8;border:1px solid var(--line);border-radius:4px;padding:.5px 4px;color:#243457}
   pre{background:var(--codebg);border:1px solid var(--line);border-left:3px solid var(--green);
@@ -82,7 +83,8 @@
      Нет ключа → бэкапы это нечитаемый шифротекст.</p>
 
   <div class="note">Проверено с ключами Token2 FIDO2.1 с расширением <b>hmac-secret</b> и <b>заданным
-     PIN</b> (напр. серии PIN+ / Molto2 / T2F2). Если PIN не задан — <code>fido2-token -S &lt;устройство&gt;</code>.</div>
+     PIN</b> (напр. серии PIN+ / Molto2 / T2F2). Если PIN не задан — <code>fido2-token -S &lt;устройство&gt;</code>.
+     Совместимые ключи: <a href="https://www.token2.com/c/fido2-keys">token2.com/c/fido2-keys</a>.</div>
 
   <h2>Предусловия (Linux)</h2>
 <pre><code>sudo apt install fido2-tools restic openssl     # Debian/Ubuntu
@@ -171,7 +173,7 @@ echo wrong-password \
         перед продакшеном.</li>
   </ul>
 
-  <footer>restic + Token2 FIDO2 (hmac-secret) · руководство по интеграции</footer>
+  <footer>restic + Token2 FIDO2 (hmac-secret) · <a href="https://www.token2.com/c/fido2-keys">token2.com/c/fido2-keys</a></footer>
 
 </div>
 </body>

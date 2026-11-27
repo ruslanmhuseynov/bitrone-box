@@ -23,6 +23,7 @@ and only from **that physical key**. That secret becomes the restic repository p
 
 > Tested with Token2 FIDO2.1 keys that support **hmac-secret** and have a **PIN set** (PIN+ / Molto2 /
 > T2F2). Set a PIN first with `fido2-token -S <device>` if needed.
+> Compatible keys: <https://www.token2.com/c/fido2-keys>
 
 ## Prerequisites (Linux)
 

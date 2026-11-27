@@ -27,6 +27,7 @@
   ul{margin:6px 0 6px 2px;padding-left:18px}
   li{margin:3px 0}
   b,strong{color:var(--navy)}
+  a{color:#2F6BE5;text-decoration:none}
   code{font-family:"Consolas","DejaVu Sans Mono",monospace;font-size:9.6pt;
     background:#eef1f8;border:1px solid var(--line);border-radius:4px;padding:.5px 4px;color:#243457}
   pre{background:var(--codebg);border:1px solid var(--line);border-left:3px solid var(--green);
@@ -84,7 +85,8 @@
 
   <div class="note">Tested with Token2 FIDO2.1 keys that support the <b>hmac-secret</b> extension and
      have a <b>PIN set</b> (e.g. PIN+ / Molto2 / T2F2 series). Set a PIN first with
-     <code>fido2-token -S &lt;device&gt;</code> if needed.</div>
+     <code>fido2-token -S &lt;device&gt;</code> if needed. Compatible keys:
+     <a href="https://www.token2.com/c/fido2-keys">token2.com/c/fido2-keys</a>.</div>
 
   <h2>Prerequisites (Linux)</h2>
 <pre><code>sudo apt install fido2-tools restic openssl     # Debian/Ubuntu
@@ -172,7 +174,7 @@ echo wrong-password \
         production use.</li>
   </ul>
 
-  <footer>restic + Token2 FIDO2 (hmac-secret) · integration guide</footer>
+  <footer>restic + Token2 FIDO2 (hmac-secret) · <a href="https://www.token2.com/c/fido2-keys">token2.com/c/fido2-keys</a></footer>
 
 </div>
 </body>
