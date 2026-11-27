@@ -20,13 +20,13 @@ The FIDO2 hmac-secret extension turns a Token2 key into a deterministic secret g
 • The libfido2 command-line tools.<br>
 
 <h2>Installing the tools</h2>
-<pre>sudo apt install fido2-tools restic openssl
+<pre style="background:#f5f7fb; border:1px solid #e1e6f0; border-left:3px solid #2E9E31; border-radius:6px; padding:11px 13px; overflow-x:auto; font-size:13px; line-height:1.5;">sudo apt install fido2-tools restic openssl
 fido2-token -L        # list keys, note your device, e.g. /dev/hidraw0</pre>
 Below, the device path is referred to as $DEV. If the key has no PIN yet, set one with <code>fido2-token -S /dev/hidraw0</code>.<br>
 
 <h2>Step 1 - Enroll the key (once)</h2>
 Create a FIDO2 credential with hmac-secret enabled, requiring user verification (PIN), and store its credential id and a fixed salt. Together with the key they reproduce the password; without the key they are useless.<br>
-<pre>DEV=$(fido2-token -L | head -1 | cut -d: -f1)
+<pre style="background:#f5f7fb; border:1px solid #e1e6f0; border-left:3px solid #2E9E31; border-radius:6px; padding:11px 13px; overflow-x:auto; font-size:13px; line-height:1.5;">DEV=$(fido2-token -L | head -1 | cut -d: -f1)
 sudo install -d -m 700 /etc/restic-fido2
 
 printf '%s\n%s\n%s\n%s\n' \
@@ -42,7 +42,7 @@ Back up /etc/restic-fido2 and enroll a second Token2 key as well (repeat the ste
 
 <h2>Step 2 - Create the password helper</h2>
 A small script asks the key (PIN and touch) and prints the derived secret. It is fed to tools through stdin, so the secret never appears on a command line.<br>
-<pre>sudo tee /usr/local/bin/restic-fido2-pass.sh &gt;/dev/null &lt;&lt;'EOF'
+<pre style="background:#f5f7fb; border:1px solid #e1e6f0; border-left:3px solid #2E9E31; border-radius:6px; padding:11px 13px; overflow-x:auto; font-size:13px; line-height:1.5;">sudo tee /usr/local/bin/restic-fido2-pass.sh &gt;/dev/null &lt;&lt;'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 DIR=/etc/restic-fido2
@@ -54,12 +54,12 @@ printf '%s\n%s\n%s\n%s\n' \
 EOF
 sudo chmod 700 /usr/local/bin/restic-fido2-pass.sh</pre>
 Run it twice: with PIN and touch each time it prints the same string, which proves the key yields a stable secret.<br>
-<pre>sudo /usr/local/bin/restic-fido2-pass.sh
+<pre style="background:#f5f7fb; border:1px solid #e1e6f0; border-left:3px solid #2E9E31; border-radius:6px; padding:11px 13px; overflow-x:auto; font-size:13px; line-height:1.5;">sudo /usr/local/bin/restic-fido2-pass.sh
 sudo /usr/local/bin/restic-fido2-pass.sh</pre>
 
 <h2>Step 3 - Verify by encrypting and decrypting a file</h2>
 Before trusting the key with backups, prove it really protects data. Encrypt a file with the key-derived secret, then decrypt it - each operation needs PIN and touch. A wrong password cannot decrypt it, which shows the key is truly required.<br>
-<pre>echo "Token2 secret $(date)" | sudo tee /tmp/plain.txt
+<pre style="background:#f5f7fb; border:1px solid #e1e6f0; border-left:3px solid #2E9E31; border-radius:6px; padding:11px 13px; overflow-x:auto; font-size:13px; line-height:1.5;">echo "Token2 secret $(date)" | sudo tee /tmp/plain.txt
 
 sudo /usr/local/bin/restic-fido2-pass.sh \
   | sudo openssl enc -aes-256-cbc -pbkdf2 -salt -pass stdin -in /tmp/plain.txt -out /tmp/cipher.bin
