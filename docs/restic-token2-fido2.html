@@ -39,6 +39,12 @@
     font-size:10pt;color:#2d4a2e;margin:10px 0}
   .warn{background:#fdf6ec;border:1px solid #f0dcb8;border-radius:6px;padding:9px 12px;
     font-size:10pt;color:#6b5118;margin:10px 0}
+  figure.shot{margin:12px 0;border:1px solid var(--line);border-radius:8px;background:#f8fafd;
+    padding:10px;text-align:center;page-break-inside:avoid}
+  figure.shot img{max-width:100%;border:1px solid var(--line);border-radius:4px;display:block;margin:0 auto}
+  figure.shot .ph{display:block;color:#9fb0cc;font-size:9.5pt;padding:26px 10px;font-style:italic;
+    border:1px dashed #c3cfe3;border-radius:6px}
+  figure.shot figcaption{font-size:9pt;color:var(--muted);margin-top:7px}
   .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:8px 0}
   .card{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#fafbfe}
   .card h3{margin-top:0}
@@ -104,6 +110,10 @@ sudo sed -n 1p /tmp/cred.out | sudo tee /etc/restic-fido2/credential &gt;/dev/nu
 head -c32 /dev/urandom | base64 | sudo tee /etc/restic-fido2/salt      &gt;/dev/null  # fixed salt
 sudo rm -f /tmp/cred.out
 sudo chmod 600 /etc/restic-fido2/*</code></pre>
+  <figure class="shot">
+    <img src="img/01-enroll.png" alt="" onerror="this.style.display='none'">
+    <figcaption>Fig. 1 — Enrolling the key: PIN + touch</figcaption>
+  </figure>
   <div class="warn">Keep <code>credential</code> and <code>salt</code> safe (and backed up): with
      them <b>and the key</b> you can reproduce the password; without the <b>key</b> they are useless.
      Losing the key = losing access, so enroll a <b>second Token2 key</b> as well and keep it in a safe.</div>
@@ -126,6 +136,10 @@ printf '%s\n%s\n%s\n%s\n' \
 restic --password-command /usr/local/bin/restic-fido2-pass.sh init          # creates repo
 restic --password-command /usr/local/bin/restic-fido2-pass.sh backup /data  # backup
 restic --password-command /usr/local/bin/restic-fido2-pass.sh restore latest --target /restore</code></pre>
+  <figure class="shot">
+    <img src="img/02-restore.png" alt="" onerror="this.style.display='none'">
+    <figcaption>Fig. 2 — restic restore authorised by the Token2 key</figcaption>
+  </figure>
   <p>Each call asks for <b>PIN</b>, then a <b>touch</b>. No key → restic cannot open the repository.</p>
 
   <h2><span class="n">Method B</span> — the key authorizes the operation (pam_u2f gate)</h2>
@@ -146,6 +160,10 @@ auth  required  pam_permit.so</code></pre>
   <h3>3. Gate your restore script</h3>
 <pre><code>pamtester restic-restore "$USER" authenticate || { echo "key not confirmed"; exit 1; }
 restic -r "$REPO" restore latest --target /restore</code></pre>
+  <figure class="shot">
+    <img src="img/03-pam.png" alt="" onerror="this.style.display='none'">
+    <figcaption>Fig. 3 — pam_u2f gate: PIN + touch required to restore</figcaption>
+  </figure>
 
   <h2>Token2 notes &amp; caveats</h2>
   <ul>
