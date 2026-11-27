@@ -42,12 +42,7 @@
   figure.shot{margin:12px 0;border:1px solid var(--line);border-radius:8px;background:#f8fafd;
     padding:10px;text-align:center;page-break-inside:avoid}
   figure.shot img{max-width:100%;border:1px solid var(--line);border-radius:4px;display:block;margin:0 auto}
-  figure.shot .ph{display:block;color:#9fb0cc;font-size:9.5pt;padding:26px 10px;font-style:italic;
-    border:1px dashed #c3cfe3;border-radius:6px}
   figure.shot figcaption{font-size:9pt;color:var(--muted);margin-top:7px}
-  .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:8px 0}
-  .card{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#fafbfe}
-  .card h3{margin-top:0}
   footer{margin-top:22px;border-top:1px solid var(--line);padding-top:10px;
     display:flex;justify-content:space-between;font-size:9.5pt;color:var(--muted)}
   footer b{color:var(--navy)}
@@ -55,7 +50,7 @@
     html,body{background:#fff}
     .sheet{margin:0;max-width:none;box-shadow:none;padding:0}
     h2{page-break-after:avoid}
-    pre,.note,.warn,.card{page-break-inside:avoid}
+    pre,.note,.warn,figure.shot{page-break-inside:avoid}
   }
   @page{size:A4;margin:16mm}
 </style>
@@ -69,115 +64,115 @@
   </header>
 
   <h1>Encrypting restic backups with a Token2 FIDO2 security key</h1>
-  <p class="sub">Make a <b>restic</b> repository that can be decrypted and restored only with a
-     physical <b>Token2</b> key — requiring both the key's <b>PIN</b> and a <b>touch</b>.</p>
-  <p class="meta">By Bitrone · soc.bitrone.az · built on libfido2 / pam_u2f · for Token2 FIDO2.1 keys (hmac-secret, PIN set)</p>
+  <p class="sub">Protect data so it can be decrypted <b>only with a physical Token2 key</b> —
+     requiring both the key's <b>PIN</b> and a <b>touch</b>. The password is stored nowhere;
+     the key <i>computes</i> it on demand.</p>
+  <p class="meta">By Bitrone · soc.bitrone.az · built on libfido2 · for Token2 FIDO2.1 keys (hmac-secret, PIN set)</p>
 
-  <p><b>restic has no native FIDO2 support</b> — it opens a repository with a password or a key
-     file. So we make the Token2 key <i>produce</i> that password. Two approaches are shown:
-     <b>Method A (hmac-secret)</b> — the key <i>is</i> the key (recommended, cryptographic);
-     <b>Method B (pam_u2f)</b> — the key <i>authorizes</i> the operation (simpler, a gate).</p>
+  <p>restic encrypts its repository with a password — but <b>where do you keep that password?</b>
+     On disk, a stolen machine gives it away. This guide uses the FIDO2 <b>hmac-secret</b> extension
+     of a Token2 key as a deterministic secret generator: for a fixed <i>credential</i> + <i>salt</i>
+     the key always returns the <b>same 32-byte secret</b> — but only after <b>PIN + touch</b>, and
+     only from <b>that physical key</b>. That secret becomes the repository password, so it exists
+     <b>nowhere on disk</b>. No key → the backups are unreadable ciphertext.</p>
 
-  <div class="note">Tested with Token2 FIDO2.1 keys that support the <b>hmac-secret</b> extension
-     and have a <b>PIN set</b> (e.g. PIN+ / Molto2 / T2F2 series). Set a PIN first with
-     <code>fido2-token -S &lt;device&gt;</code> if you have not already.</div>
+  <div class="note">Tested with Token2 FIDO2.1 keys that support the <b>hmac-secret</b> extension and
+     have a <b>PIN set</b> (e.g. PIN+ / Molto2 / T2F2 series). Set a PIN first with
+     <code>fido2-token -S &lt;device&gt;</code> if needed.</div>
 
   <h2>Prerequisites (Linux)</h2>
-<pre><code>sudo apt install fido2-tools restic          # Debian/Ubuntu
-fido2-token -L                               # list keys → note the device, e.g. /dev/hidraw0</code></pre>
+<pre><code>sudo apt install fido2-tools restic openssl     # Debian/Ubuntu
+fido2-token -L                                  # list keys → note the device, e.g. /dev/hidraw0</code></pre>
   <p>Below, the device path is referenced as <code>$DEV</code>.</p>
 
-  <h2><span class="n">Method A</span> — the key derives the repository password (hmac-secret)</h2>
-  <p>The FIDO2 <b>hmac-secret</b> extension turns the key into a deterministic secret generator:
-     for a fixed <i>credential</i> + <i>salt</i>, the key returns the <b>same 32-byte secret</b>
-     every time — but only after <b>PIN + touch</b>, and only from <b>that physical key</b>.
-     We use that secret as the restic repository password via <code>--password-command</code>.</p>
-  <p>Because the secret depends on whether <b>user verification (PIN)</b> was performed, we always
-     request it (<code>-v</code>). This makes PIN mandatory and keeps the secret stable.</p>
-
-  <h3>1. Enroll the key (once)</h3>
+  <h2><span class="n">Step 1</span> — Enroll the key (once)</h2>
+  <p>Create a FIDO2 credential with hmac-secret enabled, requiring user verification (PIN), and
+     store its <code>credential</code> id and a fixed <code>salt</code>. Together with the key they
+     reproduce the secret; without the key they are useless.</p>
 <pre><code>DEV=$(fido2-token -L | head -1 | cut -d: -f1)      # e.g. /dev/hidraw0
 sudo install -d -m 700 /etc/restic-fido2
-RP="restic-backup"                                  # relying-party id (any stable string)
 
-# create a credential WITH hmac-secret, requiring user verification (PIN)
 printf '%s\n%s\n%s\n%s\n' \
-  "$(head -c32 /dev/urandom | base64)" "$RP" "restic" "$(head -c16 /dev/urandom | base64)" \
+  "$(head -c32 /dev/urandom | base64)" "restic-backup" "restic" "$(head -c16 /dev/urandom | base64)" \
   | fido2-cred -M -h -v "$DEV" | fido2-cred -V -h -o /tmp/cred.out
-#            ^ -h = hmac-secret   ^ -v = user verification (PIN)   (touch + PIN prompted now)
+#            ^ -h = hmac-secret   ^ -v = user verification (PIN)   (PIN + touch prompted now)
 
 sudo sed -n 1p /tmp/cred.out | sudo tee /etc/restic-fido2/credential &gt;/dev/null   # credential id
 head -c32 /dev/urandom | base64 | sudo tee /etc/restic-fido2/salt      &gt;/dev/null  # fixed salt
-sudo rm -f /tmp/cred.out
-sudo chmod 600 /etc/restic-fido2/*</code></pre>
+sudo rm -f /tmp/cred.out; sudo chmod 600 /etc/restic-fido2/*</code></pre>
   <figure class="shot">
     <img src="img/01-enroll.png" alt="" onerror="this.style.display='none'">
     <figcaption>Fig. 1 — Enrolling the key: PIN + touch</figcaption>
   </figure>
-  <div class="warn">Keep <code>credential</code> and <code>salt</code> safe (and backed up): with
-     them <b>and the key</b> you can reproduce the password; without the <b>key</b> they are useless.
-     Losing the key = losing access, so enroll a <b>second Token2 key</b> as well and keep it in a safe.</div>
+  <div class="warn">Back up <code>/etc/restic-fido2</code> and enroll a <b>second Token2 key</b> too
+     (repeat the step) — FIDO2 credentials can't be copied between keys, so losing the only key means
+     losing access.</div>
 
-  <h3>2. Password helper</h3>
-  <p><code>/usr/local/bin/restic-fido2-pass.sh</code>:</p>
-<pre><code>#!/usr/bin/env bash
-# Prints the restic repo password derived from the Token2 key (PIN + touch required).
+  <h2><span class="n">Step 2</span> — Password helper</h2>
+  <p>A tiny script that asks the key (PIN + touch) and prints the derived secret. We feed it to any
+     tool via stdin, so the secret never appears on a command line.</p>
+<pre><code>sudo tee /usr/local/bin/restic-fido2-pass.sh &gt;/dev/null &lt;&lt;'EOF'
+#!/usr/bin/env bash
 set -euo pipefail
 DIR=/etc/restic-fido2
 DEV=$(fido2-token -L | head -1 | cut -d: -f1)
 printf '%s\n%s\n%s\n%s\n' \
   "$(head -c32 /dev/urandom | base64)" "restic-backup" \
   "$(cat "$DIR/credential")" "$(cat "$DIR/salt")" \
-  | fido2-assert -G -h -v "$DEV" | tail -n1      # last line = 32-byte hmac secret (base64)</code></pre>
-<pre><code>sudo install -m 700 restic-fido2-pass.sh /usr/local/bin/restic-fido2-pass.sh</code></pre>
+  | fido2-assert -G -h -v "$DEV" | tail -n1     # last line = 32-byte hmac secret (base64)
+EOF
+sudo chmod 700 /usr/local/bin/restic-fido2-pass.sh</code></pre>
+  <p>Sanity check — run it <b>twice</b>; with PIN + touch each time it prints the <b>same</b> string
+     (proof the key yields a stable secret):</p>
+<pre><code>sudo /usr/local/bin/restic-fido2-pass.sh
+sudo /usr/local/bin/restic-fido2-pass.sh</code></pre>
 
-  <h3>3. Create / use the repository</h3>
+  <h2><span class="n">Step 3</span> — Verify: encrypt &amp; decrypt a file with the key</h2>
+  <p>Before trusting it with backups, prove the key really protects data. Encrypt a file with the
+     key-derived secret, then decrypt it — each operation needs PIN + touch. A wrong password can't
+     decrypt it, which shows the key is truly required.</p>
+<pre><code>echo "Bitrone secret $(date)" | sudo tee /tmp/plain.txt
+
+# encrypt (PIN + touch) — secret piped in, never shown on the command line
+sudo /usr/local/bin/restic-fido2-pass.sh \
+  | sudo openssl enc -aes-256-cbc -pbkdf2 -salt -pass stdin -in /tmp/plain.txt -out /tmp/cipher.bin
+sudo xxd /tmp/cipher.bin | head -2        # → unreadable ciphertext
+
+# decrypt (PIN + touch again → same secret from the key)
+sudo /usr/local/bin/restic-fido2-pass.sh \
+  | sudo openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in /tmp/cipher.bin -out /tmp/decrypted.txt
+sudo cat /tmp/decrypted.txt               # → original text is back
+
+# a wrong password cannot open it (the key is required):
+echo wrong-password \
+  | sudo openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in /tmp/cipher.bin -out /dev/null   # → "bad decrypt"</code></pre>
+  <figure class="shot">
+    <img src="img/02-verify.png" alt="" onerror="this.style.display='none'">
+    <figcaption>Fig. 2 — Encrypt &amp; decrypt a file: PIN + touch; wrong password fails</figcaption>
+  </figure>
+
+  <h2><span class="n">Step 4</span> — Use it with restic</h2>
+  <p>Point restic at the helper with <code>--password-command</code>. Every call asks for PIN + touch;
+     without the key restic cannot open the repository.</p>
 <pre><code>export RESTIC_REPOSITORY=/srv/backups/myrepo         # or rest:…, s3:…, sftp:… etc.
-restic --password-command /usr/local/bin/restic-fido2-pass.sh init          # creates repo
+restic --password-command /usr/local/bin/restic-fido2-pass.sh init          # create repo
 restic --password-command /usr/local/bin/restic-fido2-pass.sh backup /data  # backup
 restic --password-command /usr/local/bin/restic-fido2-pass.sh restore latest --target /restore</code></pre>
   <figure class="shot">
-    <img src="img/02-restore.png" alt="" onerror="this.style.display='none'">
-    <figcaption>Fig. 2 — restic restore authorised by the Token2 key</figcaption>
-  </figure>
-  <p>Each call asks for <b>PIN</b>, then a <b>touch</b>. No key → restic cannot open the repository.</p>
-
-  <h2><span class="n">Method B</span> — the key authorizes the operation (pam_u2f gate)</h2>
-  <p>Simpler: the repository keeps a normal password, and a <b>Token2 key (PIN + touch)</b> is
-     required to <i>run</i> the restore/decrypt command. Good as a second factor and against casual
-     access; note a root user on the host can bypass it, and the password still exists on disk.</p>
-
-  <h3>1. Enroll</h3>
-<pre><code>sudo apt install libpam-u2f pamtester
-sudo pamu2fcfg -o pam://restic -i pam://restic | sudo tee /etc/restic-u2f_keys
-sudo chmod 600 /etc/restic-u2f_keys       # touch (+ PIN) during enrollment</code></pre>
-
-  <h3>2. PAM service <code>/etc/pam.d/restic-restore</code> — require PIN + touch</h3>
-<pre><code>auth  required  pam_u2f.so authfile=/etc/restic-u2f_keys origin=pam://restic appid=pam://restic cue pinverification=1
-auth  required  pam_permit.so</code></pre>
-  <p><code>pinverification=1</code> forces PIN; <code>cue</code> prompts the touch.</p>
-
-  <h3>3. Gate your restore script</h3>
-<pre><code>pamtester restic-restore "$USER" authenticate || { echo "key not confirmed"; exit 1; }
-restic -r "$REPO" restore latest --target /restore</code></pre>
-  <figure class="shot">
-    <img src="img/03-pam.png" alt="" onerror="this.style.display='none'">
-    <figcaption>Fig. 3 — pam_u2f gate: PIN + touch required to restore</figcaption>
+    <img src="img/03-restic.png" alt="" onerror="this.style.display='none'">
+    <figcaption>Fig. 3 — restic restore authorised by the Token2 key (“password is correct”)</figcaption>
   </figure>
 
-  <h2>Token2 notes &amp; caveats</h2>
+  <h2>Notes &amp; caveats</h2>
   <ul>
-    <li><b>Set a PIN on the key</b> (<code>fido2-token -S $DEV</code>) — Method A's user verification
-        and the <code>pinverification=1</code> option both depend on it.</li>
-    <li><b>Keep user verification consistent</b> in Method A: always use <code>-v</code>. The
-        hmac-secret differs between a PIN-verified and a non-verified assertion, so mixing them
-        changes the derived password.</li>
-    <li><b>Enroll a backup key.</b> FIDO2 credentials cannot be copied between keys — register a
-        second Token2 key and keep it safe. Losing the only key means losing access.</li>
+    <li><b>Set a PIN on the key</b> (<code>fido2-token -S $DEV</code>) — user verification depends on it.</li>
+    <li><b>Keep user verification consistent:</b> always use <code>-v</code>. The hmac-secret differs
+        between a PIN-verified and a non-verified assertion, which would change the derived password.</li>
+    <li><b>Enroll a backup key</b> and store it safely; credentials can't be copied between keys.</li>
     <li><b>Device path</b> (<code>/dev/hidrawN</code>) can change; the helper re-detects it with
-        <code>fido2-token -L</code>. For multiple keys, select by product string.</li>
-    <li>This is unofficial, community integration (restic has no built-in FIDO2); verify on your
-        exact Token2 model before relying on it in production.</li>
+        <code>fido2-token -L</code>. With several keys, select by product string.</li>
+    <li>Unofficial, community integration (restic has no built-in FIDO2); verify on your exact Token2
+        model before production use.</li>
   </ul>
 
   <h2>References</h2>
@@ -194,7 +189,7 @@ restic -r "$REPO" restore latest --target /restore</code></pre>
 
   <footer>
     <span><b>Bitrone</b> · soc.bitrone.az · +994 70 577 64 00</span>
-    <span>restic + Token2 FIDO2 · © 2026 Bitrone</span>
+    <span>restic + Token2 FIDO2 (hmac-secret) · © 2026 Bitrone</span>
   </footer>
 
 </div>

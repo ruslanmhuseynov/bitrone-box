@@ -24,7 +24,6 @@
   .meta{font-size:9.5pt;color:var(--muted);margin:0 0 18px}
   h2{font-size:14pt;color:var(--navy);margin:24px 0 6px;padding-top:4px;border-top:1px solid var(--line)}
   h2 .n{color:var(--green)}
-  h3{font-size:11.5pt;color:var(--navy);margin:16px 0 4px}
   p{margin:6px 0}
   ul{margin:6px 0 6px 2px;padding-left:18px}
   li{margin:3px 0}
@@ -39,6 +38,10 @@
     font-size:10pt;color:#2d4a2e;margin:10px 0}
   .warn{background:#fdf6ec;border:1px solid #f0dcb8;border-radius:6px;padding:9px 12px;
     font-size:10pt;color:#6b5118;margin:10px 0}
+  figure.shot{margin:12px 0;border:1px solid var(--line);border-radius:8px;background:#f8fafd;
+    padding:10px;text-align:center;page-break-inside:avoid}
+  figure.shot img{max-width:100%;border:1px solid var(--line);border-radius:4px;display:block;margin:0 auto}
+  figure.shot figcaption{font-size:9pt;color:var(--muted);margin-top:7px}
   footer{margin-top:22px;border-top:1px solid var(--line);padding-top:10px;
     display:flex;justify-content:space-between;font-size:9.5pt;color:var(--muted)}
   footer b{color:var(--navy)}
@@ -46,7 +49,7 @@
     html,body{background:#fff}
     .sheet{margin:0;max-width:none;box-shadow:none;padding:0}
     h2{page-break-after:avoid}
-    pre,.note,.warn{page-break-inside:avoid}
+    pre,.note,.warn,figure.shot{page-break-inside:avoid}
   }
   @page{size:A4;margin:16mm}
 </style>
@@ -60,104 +63,113 @@
   </header>
 
   <h1>Шифрование restic-бэкапов аппаратным ключом Token2 FIDO2</h1>
-  <p class="sub">Сделать репозиторий <b>restic</b>, который можно расшифровать и восстановить
-     <b>только физическим ключом Token2</b> — с вводом <b>PIN</b> и <b>касанием</b>.</p>
-  <p class="meta">Bitrone · soc.bitrone.az · на базе libfido2 / pam_u2f · для ключей Token2 FIDO2.1 (hmac-secret, задан PIN)</p>
+  <p class="sub">Данные можно расшифровать <b>только физическим ключом Token2</b> — с вводом <b>PIN</b>
+     и <b>касанием</b>. Пароль нигде не хранится — ключ <i>вычисляет</i> его по запросу.</p>
+  <p class="meta">Bitrone · soc.bitrone.az · на базе libfido2 · для ключей Token2 FIDO2.1 (hmac-secret, задан PIN)</p>
 
-  <p><b>restic не поддерживает FIDO2 напрямую</b> — он открывает репозиторий паролем или файлом-ключом.
-     Поэтому мы заставляем ключ Token2 <i>выдавать</i> этот пароль. Показаны два подхода:
-     <b>Метод A (hmac-secret)</b> — ключ <i>и есть</i> ключ (рекомендуется, криптографически);
-     <b>Метод B (pam_u2f)</b> — ключ <i>авторизует</i> операцию (проще, это гейт).</p>
+  <p>restic шифрует репозиторий паролем — но <b>где хранить этот пароль?</b> Если на диске, укравший
+     коробку получит и его. В этом гайде расширение FIDO2 <b>hmac-secret</b> ключа Token2 работает как
+     детерминированный генератор секрета: для фиксированных <i>credential</i> и <i>salt</i> ключ всегда
+     возвращает <b>один и тот же 32-байтовый секрет</b> — но только после <b>PIN + касания</b> и только
+     с <b>этого физического ключа</b>. Этот секрет и есть пароль репозитория, поэтому он <b>нигде на
+     диске не лежит</b>. Нет ключа → бэкапы это нечитаемый шифротекст.</p>
 
-  <div class="note">Проверено с ключами Token2 FIDO2.1, поддерживающими расширение <b>hmac-secret</b>
-     и с <b>заданным PIN</b> (напр. серии PIN+ / Molto2 / T2F2). Если PIN ещё не задан —
-     <code>fido2-token -S &lt;устройство&gt;</code>.</div>
+  <div class="note">Проверено с ключами Token2 FIDO2.1 с расширением <b>hmac-secret</b> и <b>заданным
+     PIN</b> (напр. серии PIN+ / Molto2 / T2F2). Если PIN не задан — <code>fido2-token -S &lt;устройство&gt;</code>.</div>
 
   <h2>Предусловия (Linux)</h2>
-<pre><code>sudo apt install fido2-tools restic          # Debian/Ubuntu
-fido2-token -L                               # список ключей → запомнить устройство, напр. /dev/hidraw0</code></pre>
+<pre><code>sudo apt install fido2-tools restic openssl     # Debian/Ubuntu
+fido2-token -L                                  # список ключей → устройство, напр. /dev/hidraw0</code></pre>
   <p>Ниже устройство обозначено как <code>$DEV</code>.</p>
 
-  <h2><span class="n">Метод A</span> — ключ выводит пароль репозитория (hmac-secret)</h2>
-  <p>Расширение FIDO2 <b>hmac-secret</b> превращает ключ в детерминированный генератор секрета:
-     для фиксированных <i>credential</i> и <i>salt</i> ключ каждый раз возвращает <b>один и тот же
-     32-байтовый секрет</b> — но только после <b>PIN + касания</b> и только с <b>этого физического
-     ключа</b>. Этот секрет используется как пароль репозитория restic через
-     <code>--password-command</code>.</p>
-  <p>Секрет зависит от того, выполнялась ли <b>проверка пользователя (PIN)</b>, поэтому мы всегда
-     её запрашиваем (<code>-v</code>). Это и делает PIN обязательным, и сохраняет секрет стабильным.</p>
-
-  <h3>1. Регистрация ключа (один раз)</h3>
+  <h2><span class="n">Шаг 1</span> — Регистрация ключа (один раз)</h2>
+  <p>Создаём FIDO2-credential с включённым hmac-secret, требуя проверку пользователя (PIN), и сохраняем
+     его <code>credential</code> и фиксированный <code>salt</code>. Вместе с ключом они воспроизводят
+     секрет; без ключа — бесполезны.</p>
 <pre><code>DEV=$(fido2-token -L | head -1 | cut -d: -f1)      # напр. /dev/hidraw0
 sudo install -d -m 700 /etc/restic-fido2
-RP="restic-backup"                                  # идентификатор RP (любая постоянная строка)
 
-# создать credential С hmac-secret, требуя проверку пользователя (PIN)
 printf '%s\n%s\n%s\n%s\n' \
-  "$(head -c32 /dev/urandom | base64)" "$RP" "restic" "$(head -c16 /dev/urandom | base64)" \
+  "$(head -c32 /dev/urandom | base64)" "restic-backup" "restic" "$(head -c16 /dev/urandom | base64)" \
   | fido2-cred -M -h -v "$DEV" | fido2-cred -V -h -o /tmp/cred.out
-#            ^ -h = hmac-secret   ^ -v = проверка пользователя (PIN)   (сейчас спросит касание + PIN)
+#            ^ -h = hmac-secret   ^ -v = проверка пользователя (PIN)   (сейчас спросит PIN + касание)
 
 sudo sed -n 1p /tmp/cred.out | sudo tee /etc/restic-fido2/credential &gt;/dev/null   # id credential
 head -c32 /dev/urandom | base64 | sudo tee /etc/restic-fido2/salt      &gt;/dev/null  # фиксированный salt
-sudo rm -f /tmp/cred.out
-sudo chmod 600 /etc/restic-fido2/*</code></pre>
-  <div class="warn"><code>credential</code> и <code>salt</code> храните надёжно (и сделайте резервную
-     копию): с ними <b>и ключом</b> пароль воспроизводится; без <b>ключа</b> они бесполезны.
-     Потеря ключа = потеря доступа, поэтому зарегистрируйте <b>второй ключ Token2</b> и держите его в сейфе.</div>
+sudo rm -f /tmp/cred.out; sudo chmod 600 /etc/restic-fido2/*</code></pre>
+  <figure class="shot">
+    <img src="img/01-enroll.png" alt="" onerror="this.style.display='none'">
+    <figcaption>Рис. 1 — Регистрация ключа: PIN + касание</figcaption>
+  </figure>
+  <div class="warn">Сделайте резервную копию <code>/etc/restic-fido2</code> и зарегистрируйте <b>второй
+     ключ Token2</b> (повторив шаг) — credential нельзя скопировать между ключами, потеря единственного
+     ключа = потеря доступа.</div>
 
-  <h3>2. Хелпер, выдающий пароль</h3>
-  <p><code>/usr/local/bin/restic-fido2-pass.sh</code>:</p>
-<pre><code>#!/usr/bin/env bash
-# Печатает пароль репозитория restic, выведенный из ключа Token2 (нужны PIN + касание).
+  <h2><span class="n">Шаг 2</span> — Хелпер, выдающий пароль</h2>
+  <p>Маленький скрипт спрашивает ключ (PIN + касание) и печатает выведенный секрет. Мы передаём его в
+     любой инструмент через stdin, чтобы секрет не попадал в командную строку.</p>
+<pre><code>sudo tee /usr/local/bin/restic-fido2-pass.sh &gt;/dev/null &lt;&lt;'EOF'
+#!/usr/bin/env bash
 set -euo pipefail
 DIR=/etc/restic-fido2
 DEV=$(fido2-token -L | head -1 | cut -d: -f1)
 printf '%s\n%s\n%s\n%s\n' \
   "$(head -c32 /dev/urandom | base64)" "restic-backup" \
   "$(cat "$DIR/credential")" "$(cat "$DIR/salt")" \
-  | fido2-assert -G -h -v "$DEV" | tail -n1      # последняя строка = 32-байтовый hmac-секрет (base64)</code></pre>
-<pre><code>sudo install -m 700 restic-fido2-pass.sh /usr/local/bin/restic-fido2-pass.sh</code></pre>
+  | fido2-assert -G -h -v "$DEV" | tail -n1     # последняя строка = 32-байтовый hmac-секрет (base64)
+EOF
+sudo chmod 700 /usr/local/bin/restic-fido2-pass.sh</code></pre>
+  <p>Проверка — запустите <b>дважды</b>; с PIN + касанием каждый раз выдаст <b>одинаковую</b> строку
+     (ключ даёт стабильный секрет):</p>
+<pre><code>sudo /usr/local/bin/restic-fido2-pass.sh
+sudo /usr/local/bin/restic-fido2-pass.sh</code></pre>
 
-  <h3>3. Создание и использование репозитория</h3>
+  <h2><span class="n">Шаг 3</span> — Проверка: зашифровать и расшифровать файл ключом</h2>
+  <p>Прежде чем доверять ключу бэкапы, докажем, что он реально защищает данные. Шифруем файл секретом
+     из ключа, затем расшифровываем — каждая операция требует PIN + касания. Неверным паролем файл не
+     открыть, что доказывает: ключ действительно нужен.</p>
+<pre><code>echo "Bitrone secret $(date)" | sudo tee /tmp/plain.txt
+
+# шифрование (PIN + касание) — секрет идёт через stdin, в командной строке не виден
+sudo /usr/local/bin/restic-fido2-pass.sh \
+  | sudo openssl enc -aes-256-cbc -pbkdf2 -salt -pass stdin -in /tmp/plain.txt -out /tmp/cipher.bin
+sudo xxd /tmp/cipher.bin | head -2        # → нечитаемый шифротекст
+
+# расшифровка (снова PIN + касание → тот же секрет из ключа)
+sudo /usr/local/bin/restic-fido2-pass.sh \
+  | sudo openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in /tmp/cipher.bin -out /tmp/decrypted.txt
+sudo cat /tmp/decrypted.txt               # → исходный текст вернулся
+
+# неверный пароль не откроет файл (ключ обязателен):
+echo wrong-password \
+  | sudo openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in /tmp/cipher.bin -out /dev/null   # → "bad decrypt"</code></pre>
+  <figure class="shot">
+    <img src="img/02-verify.png" alt="" onerror="this.style.display='none'">
+    <figcaption>Рис. 2 — Шифрование и расшифровка файла: PIN + касание; неверный пароль не проходит</figcaption>
+  </figure>
+
+  <h2><span class="n">Шаг 4</span> — Использование с restic</h2>
+  <p>Указываем restic на хелпер через <code>--password-command</code>. Каждый вызов спросит PIN +
+     касание; без ключа restic не откроет репозиторий.</p>
 <pre><code>export RESTIC_REPOSITORY=/srv/backups/myrepo         # либо rest:…, s3:…, sftp:… и т.д.
 restic --password-command /usr/local/bin/restic-fido2-pass.sh init          # создать репо
 restic --password-command /usr/local/bin/restic-fido2-pass.sh backup /data  # бэкап
 restic --password-command /usr/local/bin/restic-fido2-pass.sh restore latest --target /restore</code></pre>
-  <p>Каждый вызов спросит <b>PIN</b>, затем <b>касание</b>. Нет ключа → restic не откроет репозиторий.</p>
+  <figure class="shot">
+    <img src="img/03-restic.png" alt="" onerror="this.style.display='none'">
+    <figcaption>Рис. 3 — restic restore через ключ Token2 («password is correct»)</figcaption>
+  </figure>
 
-  <h2><span class="n">Метод B</span> — ключ авторизует операцию (гейт pam_u2f)</h2>
-  <p>Проще: у репозитория обычный пароль, а <b>ключ Token2 (PIN + касание)</b> нужен, чтобы
-     <i>запустить</i> восстановление/расшифровку. Хорош как второй фактор и от случайного доступа;
-     но пользователь с root на хосте может его обойти, и пароль по-прежнему лежит на диске.</p>
-
-  <h3>1. Регистрация</h3>
-<pre><code>sudo apt install libpam-u2f pamtester
-sudo pamu2fcfg -o pam://restic -i pam://restic | sudo tee /etc/restic-u2f_keys
-sudo chmod 600 /etc/restic-u2f_keys       # касание (+ PIN) во время регистрации</code></pre>
-
-  <h3>2. PAM-сервис <code>/etc/pam.d/restic-restore</code> — требовать PIN + касание</h3>
-<pre><code>auth  required  pam_u2f.so authfile=/etc/restic-u2f_keys origin=pam://restic appid=pam://restic cue pinverification=1
-auth  required  pam_permit.so</code></pre>
-  <p><code>pinverification=1</code> делает PIN обязательным; <code>cue</code> показывает запрос касания.</p>
-
-  <h3>3. Гейт в скрипте восстановления</h3>
-<pre><code>pamtester restic-restore "$USER" authenticate || { echo "ключ не подтверждён"; exit 1; }
-restic -r "$REPO" restore latest --target /restore</code></pre>
-
-  <h2>Заметки и оговорки по Token2</h2>
+  <h2>Заметки и оговорки</h2>
   <ul>
-    <li><b>Задайте PIN на ключе</b> (<code>fido2-token -S $DEV</code>) — от него зависят и проверка
-        пользователя в Методе A, и опция <code>pinverification=1</code>.</li>
-    <li><b>Держите проверку пользователя единообразной</b> в Методе A: всегда используйте
-        <code>-v</code>. hmac-секрет различается между проверкой с PIN и без неё — их смешивание
-        изменит выведенный пароль.</li>
-    <li><b>Зарегистрируйте запасной ключ.</b> FIDO2-credential нельзя скопировать между ключами —
-        заведите второй ключ Token2 и храните в сейфе. Потеря единственного ключа = потеря доступа.</li>
-    <li><b>Путь устройства</b> (<code>/dev/hidrawN</code>) может меняться; хелпер определяет его
-        заново через <code>fido2-token -L</code>. Для нескольких ключей выбирайте по строке продукта.</li>
-    <li>Это неофициальная, «сообществом» интеграция (у restic нет встроенного FIDO2); проверьте на
-        своей модели Token2 перед использованием в проде.</li>
+    <li><b>Задайте PIN на ключе</b> (<code>fido2-token -S $DEV</code>) — от него зависит проверка пользователя.</li>
+    <li><b>Держите проверку пользователя единообразной:</b> всегда <code>-v</code>. hmac-секрет
+        различается между проверкой с PIN и без — это изменит выведенный пароль.</li>
+    <li><b>Зарегистрируйте запасной ключ</b> и храните в сейфе; credential нельзя скопировать между ключами.</li>
+    <li><b>Путь устройства</b> (<code>/dev/hidrawN</code>) может меняться; хелпер определяет его заново
+        через <code>fido2-token -L</code>. Для нескольких ключей выбирайте по строке продукта.</li>
+    <li>Неофициальная «сообществом» интеграция (у restic нет встроенного FIDO2); проверьте на своей
+        модели Token2 перед продакшеном.</li>
   </ul>
 
   <h2>Ссылки</h2>
@@ -168,13 +180,13 @@ restic -r "$REPO" restore latest --target /restore</code></pre>
         <a href="https://cgit.freebsd.org/src/plain/contrib/libfido2/examples/README.adoc">cgit.freebsd.org/.../examples</a></li>
     <li>Разбор hmac-secret CLI (gist сообщества) —
         <a href="https://gist.github.com/joostd/ef34e52d17bbf546977ff8cfd61f38cd">gist.github.com/joostd</a></li>
-    <li>Руководства по интеграции Token2 —
+    <li>Руководства Token2 —
         <a href="https://www.token2.com/pages/integration-guides">token2.com/pages/integration-guides</a></li>
   </ul>
 
   <footer>
     <span><b>Bitrone</b> · soc.bitrone.az · +994 70 577 64 00</span>
-    <span>restic + Token2 FIDO2 · © 2026 Bitrone</span>
+    <span>restic + Token2 FIDO2 (hmac-secret) · © 2026 Bitrone</span>
   </footer>
 
 </div>
