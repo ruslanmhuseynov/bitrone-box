@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Using Token2 Security Keys to encrypt restic backups</title>
+</head>
+<body>
+<h2>Using Token2 Security Keys to encrypt restic backups</h2>
+restic is a fast, modern, open-source backup program and one of the most trusted tools of its kind. It encrypts everything on the client side with AES-256 by default, deduplicates data so backups stay compact, verifies integrity with content hashes, runs on Linux, Windows and macOS, and writes to many storage backends (local, SFTP, REST server, S3, Backblaze B2, Azure, Google Cloud and more).<br>
+
+restic protects a repository with a password. The important question is where to keep that password: if it is stored on disk, a stolen machine gives it away. With a Token2 FIDO2 security key the password is not stored at all — the key computes it on demand, using the FIDO2 hmac-secret extension, and only after the key's PIN and a touch.<br>
+
+In this guide we configure <a href="https://www.token2.com/c/fido2-keys" target="_blank">Token2 security keys</a> to protect a restic repository on Linux.<br>
+
+<h2>How it works</h2>
+The FIDO2 hmac-secret extension turns a Token2 key into a deterministic secret generator: for a fixed credential and salt, the key always returns the same 32-byte secret — but only after PIN and touch, and only from that physical key. That secret is used as the restic repository password, so it exists nowhere on disk. Without the key, the backups are unreadable ciphertext.<br>
+
+<h2>Requirements:</h2>
+• A Linux host (Debian/Ubuntu) with restic installed.<br>
+• A Token2 FIDO2 security key that supports hmac-secret, with a PIN set (e.g. PIN+ / Molto2 / T2F2).<br>
+• The libfido2 command-line tools.<br>
+
+<h2>Installing the tools</h2>
+<pre>sudo apt install fido2-tools restic openssl
+fido2-token -L        # list keys, note your device, e.g. /dev/hidraw0</pre>
+Below, the device path is referred to as $DEV. If the key has no PIN yet, set one with <code>fido2-token -S /dev/hidraw0</code>.<br>
+
+<h2>Step 1 - Enroll the key (once)</h2>
+Create a FIDO2 credential with hmac-secret enabled, requiring user verification (PIN), and store its credential id and a fixed salt. Together with the key they reproduce the password; without the key they are useless.<br>
+<pre>DEV=$(fido2-token -L | head -1 | cut -d: -f1)
+sudo install -d -m 700 /etc/restic-fido2
+
+printf '%s\n%s\n%s\n%s\n' \
+  "$(head -c32 /dev/urandom | base64)" "restic-backup" "restic" "$(head -c16 /dev/urandom | base64)" \
+  | fido2-cred -M -h -v "$DEV" | fido2-cred -V -h -o /tmp/cred.out
+
+sudo sed -n 1p /tmp/cred.out | sudo tee /etc/restic-fido2/credential &gt;/dev/null
+head -c32 /dev/urandom | base64 | sudo tee /etc/restic-fido2/salt      &gt;/dev/null
+sudo rm -f /tmp/cred.out; sudo chmod 600 /etc/restic-fido2/*</pre>
+When prompted, enter the key's PIN and touch it.<br>
+<br><img src="pictures/pic1.png"><br><br><br>
+Back up /etc/restic-fido2 and enroll a second Token2 key as well (repeat the step) - FIDO2 credentials cannot be copied between keys, so losing the only key means losing access.<br>
+
+<h2>Step 2 - Create the password helper</h2>
+A small script asks the key (PIN and touch) and prints the derived secret. It is fed to tools through stdin, so the secret never appears on a command line.<br>
+<pre>sudo tee /usr/local/bin/restic-fido2-pass.sh &gt;/dev/null &lt;&lt;'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+DIR=/etc/restic-fido2
+DEV=$(fido2-token -L | head -1 | cut -d: -f1)
+printf '%s\n%s\n%s\n%s\n' \
+  "$(head -c32 /dev/urandom | base64)" "restic-backup" \
+  "$(cat "$DIR/credential")" "$(cat "$DIR/salt")" \
+  | fido2-assert -G -h -v "$DEV" | tail -n1
+EOF
+sudo chmod 700 /usr/local/bin/restic-fido2-pass.sh</pre>
+Run it twice: with PIN and touch each time it prints the same string, which proves the key yields a stable secret.<br>
+<pre>sudo /usr/local/bin/restic-fido2-pass.sh
+sudo /usr/local/bin/restic-fido2-pass.sh</pre>
+
+<h2>Step 3 - Verify by encrypting and decrypting a file</h2>
+Before trusting the key with backups, prove it really protects data. Encrypt a file with the key-derived secret, then decrypt it - each operation needs PIN and touch. A wrong password cannot decrypt it, which shows the key is truly required.<br>
+<pre>echo "Token2 secret $(date)" | sudo tee /tmp/plain.txt
+
+sudo /usr/local/bin/restic-fido2-pass.sh \
+  | sudo openssl enc -aes-256-cbc -pbkdf2 -salt -pass stdin -in /tmp/plain.txt -out /tmp/cipher.bin
+sudo od -A x -t x1z /tmp/cipher.bin | head -3
+
+sudo /usr/local/bin/restic-fido2-pass.sh \
+  | sudo openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in /tmp/cipher.bin -out /tmp/decrypted.txt
+sudo cat /tmp/decrypted.txt
+
+echo wrong-password \
+  | sudo openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in /tmp/cipher.bin -out /dev/null</pre>
+The ciphertext is unreadable, the correct key brings the text back, and a wrong password fails with "bad decrypt".<br>
+<br><img src="pictures/pic2.png"><br><br><br>
+restic uses the same helper with <code>restic --password-command /usr/local/bin/restic-fido2-pass.sh</code>, so every init, backup and restore is protected by the Token2 key.<br>
+
+<h2>Notes</h2>
+• Set a PIN on the key with <code>fido2-token -S $DEV</code>; user verification depends on it.<br>
+• Always use the -v option. The hmac-secret differs between a PIN-verified and a non-verified assertion, which would change the derived password.<br>
+• Enroll a backup key and store it safely; credentials cannot be copied between keys.<br>
+• The device path (/dev/hidrawN) can change; the helper re-detects it with fido2-token -L.<br>
+</body>
+</html>
